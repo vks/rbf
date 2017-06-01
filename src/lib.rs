@@ -62,7 +62,7 @@ impl<F> Interpolation<F>
             };
         }
 
-        let lu = PartialPivLu::decompose(rbf).expect("Matrix not invertible.");
+        let lu = PartialPivLu::decompose(rbf).expect("Matrix not invertible");
         let weights = lu.solve(rhs).expect("Matrix is singular.");
 
         Interpolation {
@@ -99,6 +99,51 @@ impl<F> Interpolation<F>
         }
         if self.normalized { sumw / sum } else { sumw }
     }
+}
+
+/// Find the parameter `r0` for which the RBF `phi` approximates `f` best.
+///
+/// Only works for one-dimensional functions.
+///
+/// The heuristic assumes the points are sorted.
+pub fn find_best_parameter<F, G, I>(points: &[f64], f: F, phi: G, normalized: bool,
+                                    r0s: I) -> (f64, f64)
+    where F: Fn(f64) -> f64 + Copy,
+          G: Fn(f64, f64) -> f64,
+          I: Iterator<Item = f64>,
+{
+    let n = points.len();
+    assert_ne!(n, 0);
+    let values: Vec<f64> = points.iter().cloned().map(f).collect();
+
+    let mut best_r0 = 0.;
+    let mut best_error = std::f64::INFINITY;
+
+    for r0 in r0s {
+        println!("{}", r0);
+        let mpoints = Matrix::new(n, 1, points.clone());
+        let interp = Interpolation::new(mpoints, &values,
+            |r| phi(r, r0), normalized);
+
+        let mut error: f64 = 0.;
+        for i in 0..n {
+            {
+                let x = points[i];
+                error = error.max((interp.interpolate(&[x]) - f(x)).abs());
+            }
+            if n > 1 && i < n - 1 {
+                let x = 0.5 * (points[i] + points[i + 1]);
+                error = error.max((interp.interpolate(&[x]) - f(x)).abs());
+            }
+        }
+        if error < best_error {
+            best_r0 = r0;
+            best_error = error;
+        }
+    }
+
+    assert!(best_error.is_finite());
+    (best_r0, best_error)
 }
 
 /// Multiquadric radial basis function.
@@ -138,6 +183,7 @@ pub fn gaussian(r: f64, r0: f64) -> f64 {
     (-0.5 * r*r / (r0*r0)).exp()
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,41 +195,41 @@ mod tests {
         }
 
         const N: usize = 100;
-        const MAX: f64 = 5.;
+        const MAX: f64 = 2.;
         let mut points = Vec::with_capacity(N);
         let mut values = Vec::with_capacity(N);
         for i in 0..N {
-            let x = MAX / ((N - i) as f64);
+            let x = MAX * (i as f64) / (N as f64);
             points.push(x);
             values.push(f(x));
         }
 
         macro_rules! try_rbf {
-            ($phi: expr, $norm: expr, $tol_repro: expr, $tol_inter: expr) => {
+            ($phi: expr, $norm: expr, $tol: expr) => {
                 let mpoints = Matrix::new(N, 1, points.clone());
                 let interp = Interpolation::new(mpoints, &values, $phi, $norm);
 
                 for i in 0..N {
                     let x = points[i];
-                    assert_approx_eq!(interp.interpolate(&[x]), values[i], $tol_repro);
+                    assert_approx_eq!(interp.interpolate(&[x]), values[i], $tol);
                 }
 
                 for i in 0..(N - 2) {
                     let x = points[i] + 0.5 * MAX / (N as f64);
                     println!("{}", i);
-                    assert_approx_eq!(interp.interpolate(&[x]), f(x), $tol_inter);
+                    assert_approx_eq!(interp.interpolate(&[x]), f(x), $tol);
                 }
             }
         }
 
-        try_rbf!(|r| multiquadric(r, 0.1), false, 1e-6, 1e-2);
-        try_rbf!(|r| inverse_multiquadric(r, 0.1), false, 1e-8, 1e-1);
-        try_rbf!(|r| thin_plate(r, 0.1), false, 1e-12, 1e-1);
-        try_rbf!(|r| gaussian(r, 0.1), false, 1e-7, 3e-1);
+        try_rbf!(|r| multiquadric(r, 0.3), true, 1e-6);
+        try_rbf!(|r| inverse_multiquadric(r, 0.8), true, 1e-7);
+        try_rbf!(|r| thin_plate(r, 0.4), true, 0.003);
+        try_rbf!(|r| gaussian(r, 0.3), true, 1e-12);
 
-        try_rbf!(|r| multiquadric(r, 0.1), true, 1e-5, 1e-1);
-        try_rbf!(|r| inverse_multiquadric(r, 0.1), true, 1e-9, 1e-1);
-        try_rbf!(|r| thin_plate(r, 0.02), true, 1e-10, 8e-1);
-        try_rbf!(|r| gaussian(r, 0.1), true, 1e-11, 2e-1);
+        try_rbf!(|r| multiquadric(r, 1.0), false, 1e-7);
+        try_rbf!(|r| inverse_multiquadric(r, 0.8), false, 1e-7);
+        try_rbf!(|r| thin_plate(r, 0.001), false, 1e-3);
+        try_rbf!(|r| gaussian(r, 0.2), false, 1e-7);
     }
 }
