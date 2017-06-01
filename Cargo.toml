@@ -1,0 +1,10 @@
+[package]
+authors = ["Vinzent Steinberg <Vinzent.Steinberg@gmail.com>"]
+name = "rbf"
+version = "0.1.0"
+
+[dependencies]
+rulinalg = "0.4"
+
+[dev-dependencies]
+assert_approx_eq = "1"
