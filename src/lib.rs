@@ -143,13 +143,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn one_dimensional_reproduce() {
+    fn one_dimensional() {
         fn f(x: f64) -> f64 {
             x.exp()
         }
 
         const N: usize = 100;
-        const MAX: f64 = 10.;
+        const MAX: f64 = 5.;
         let mut points = Vec::with_capacity(N);
         let mut values = Vec::with_capacity(N);
         for i in 0..N {
@@ -158,21 +158,27 @@ mod tests {
             values.push(f(x));
         }
 
-        macro_rules! try_rbf { 
-            ($phi: expr, $tol: expr) => {
+        macro_rules! try_rbf {
+            ($phi: expr, $tol_repro: expr, $tol_inter: expr) => {
                 let mpoints = Matrix::new(N, 1, points.clone());
                 let interp = Interpolation::new(mpoints, &values, $phi, false);
 
                 for i in 0..N {
                     let x = points[i];
-                    assert_approx_eq!(interp.interpolate(&[x]), values[i], $tol);
+                    assert_approx_eq!(interp.interpolate(&[x]), values[i], $tol_repro);
+                }
+
+                for i in 0..(N - 2) {
+                    let x = points[i] + 0.5 * MAX / (N as f64);
+                    println!("{}", i);
+                    assert_approx_eq!(interp.interpolate(&[x]), f(x), $tol_inter);
                 }
             }
         }
 
-        try_rbf!(|r| multiquadric(r, 0.1), 1e-4);
-        try_rbf!(|r| inverse_multiquadric(r, 0.1), 1e-6);
-        try_rbf!(|r| thin_plate(r, 0.1), 1e-9);
-        try_rbf!(|r| gaussian(r, 0.1), 1e-7);
+        try_rbf!(|r| multiquadric(r, 0.1), 1e-6, 1e-2);
+        try_rbf!(|r| inverse_multiquadric(r, 0.1), 1e-8, 1e-1);
+        try_rbf!(|r| thin_plate(r, 0.1), 1e-12, 1e-1);
+        try_rbf!(|r| gaussian(r, 0.1), 1e-7, 3e-1);
     }
 }
