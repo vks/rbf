@@ -159,9 +159,9 @@ mod tests {
         }
 
         macro_rules! try_rbf {
-            ($phi: expr, $tol_repro: expr, $tol_inter: expr) => {
+            ($phi: expr, $norm: expr, $tol_repro: expr, $tol_inter: expr) => {
                 let mpoints = Matrix::new(N, 1, points.clone());
-                let interp = Interpolation::new(mpoints, &values, $phi, false);
+                let interp = Interpolation::new(mpoints, &values, $phi, $norm);
 
                 for i in 0..N {
                     let x = points[i];
@@ -176,9 +176,14 @@ mod tests {
             }
         }
 
-        try_rbf!(|r| multiquadric(r, 0.1), 1e-6, 1e-2);
-        try_rbf!(|r| inverse_multiquadric(r, 0.1), 1e-8, 1e-1);
-        try_rbf!(|r| thin_plate(r, 0.1), 1e-12, 1e-1);
-        try_rbf!(|r| gaussian(r, 0.1), 1e-7, 3e-1);
+        try_rbf!(|r| multiquadric(r, 0.1), false, 1e-6, 1e-2);
+        try_rbf!(|r| inverse_multiquadric(r, 0.1), false, 1e-8, 1e-1);
+        try_rbf!(|r| thin_plate(r, 0.1), false, 1e-12, 1e-1);
+        try_rbf!(|r| gaussian(r, 0.1), false, 1e-7, 3e-1);
+
+        try_rbf!(|r| multiquadric(r, 0.1), true, 1e-5, 1e-1);
+        try_rbf!(|r| inverse_multiquadric(r, 0.1), true, 1e-9, 1e-1);
+        try_rbf!(|r| thin_plate(r, 0.02), true, 1e-10, 8e-1);
+        try_rbf!(|r| gaussian(r, 0.1), true, 1e-11, 2e-1);
     }
 }
