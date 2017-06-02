@@ -48,10 +48,12 @@ impl<F> Interpolation<F>
         let mut rbf: Matrix<f64> = Matrix::zeros(n, n);
         let mut rhs = Vector::new(vec![0.; n]);
 
+        let phi0 = phi(0.);
         for i in 0..n {
-            rbf[[i, i]] = phi(distance!(dim, points.row(i), points.row(i)));
+            rbf[[i, i]] = phi0;
             for j in 0..i {
                 let val = phi(distance!(dim, points.row(i), points.row(j)));
+                println!("{}", val);
                 rbf[[i, j]] = val;
                 rbf[[j, i]] = val;
             }
@@ -69,8 +71,8 @@ impl<F> Interpolation<F>
             };
         }
 
-        let lu = PartialPivLu::decompose(rbf).expect("Matrix not invertible");
-        let weights = lu.solve(rhs).expect("Matrix is singular.");
+        let lu = PartialPivLu::decompose(rbf).expect("Matrix is not invertible");
+        let weights = lu.solve(rhs).expect("Matrix is singular");
 
         Interpolation {
             points: points,
@@ -166,6 +168,7 @@ pub fn multiquadric(r: f64, r0: f64) -> f64 {
 /// `r0` should be larger than the typical separation of pionts, but smaller
 /// than the feature size of the function being interpolated.
 pub fn inverse_multiquadric(r: f64, r0: f64) -> f64 {
+    debug_assert_ne!(r0, 0., "RBF must be defined for r=0");
     1. / (r*r + r0*r0).sqrt()
 }
 
@@ -174,6 +177,8 @@ pub fn inverse_multiquadric(r: f64, r0: f64) -> f64 {
 /// `r0` should be larger than the typical separation of pionts, but smaller
 /// than the feature size of the function being interpolated.
 pub fn thin_plate(r: f64, r0: f64) -> f64 {
+    debug_assert!(r >= 0.);
+    debug_assert_ne!(r0, 0.);
     if r == 0. {
         return 0.;
     }
@@ -187,6 +192,7 @@ pub fn thin_plate(r: f64, r0: f64) -> f64 {
 ///
 /// Can yield high accuracy, but is very sensitive to the choice of `r0`.
 pub fn gaussian(r: f64, r0: f64) -> f64 {
+    debug_assert_ne!(r0, 0.);
     (-0.5 * r*r / (r0*r0)).exp()
 }
 
