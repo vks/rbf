@@ -53,7 +53,6 @@ impl<F> Interpolation<F>
             rbf[[i, i]] = phi0;
             for j in 0..i {
                 let val = phi(distance!(dim, points.row(i), points.row(j)));
-                println!("{}", val);
                 rbf[[i, j]] = val;
                 rbf[[j, i]] = val;
             }
@@ -129,7 +128,6 @@ pub fn find_best_parameter<F, G, I>(points: &[f64], f: F, phi: G, normalized: bo
     let mut best_error = std::f64::INFINITY;
 
     for r0 in r0s {
-        println!("{}", r0);
         let mpoints = Matrix::new(n, 1, points.clone());
         let interp = Interpolation::new(mpoints, &values,
             |r| phi(r, r0), normalized);
@@ -196,6 +194,16 @@ pub fn gaussian(r: f64, r0: f64) -> f64 {
     (-0.5 * r*r / (r0*r0)).exp()
 }
 
+/// Inverse quadratic radial basis function.
+///
+/// `r0` should be larger than the typical separation of pionts, but smaller
+/// than the feature size of the function being interpolated.
+///
+/// This results in a positive definite matrix `phi(||r_i - r_j||`.
+pub fn inverse_quadratic(r: f64, r0: f64) -> f64 {
+    1. / (1. + r0*r0 * r*r)
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -229,7 +237,6 @@ mod tests {
 
                 for i in 0..(N - 2) {
                     let x = points[i] + 0.5 * MAX / (N as f64);
-                    println!("{}", i);
                     assert_approx_eq!(interp.interpolate(&[x]), f(x), $tol);
                 }
             }
@@ -239,10 +246,12 @@ mod tests {
         try_rbf!(|r| inverse_multiquadric(r, 0.8), true, 1e-7);
         try_rbf!(|r| thin_plate(r, 0.4), true, 0.003);
         try_rbf!(|r| gaussian(r, 0.3), true, 1e-12);
+        try_rbf!(|r| inverse_quadratic(r, 2.0), true, 1e-7);
 
         try_rbf!(|r| multiquadric(r, 1.0), false, 1e-7);
         try_rbf!(|r| inverse_multiquadric(r, 0.8), false, 1e-7);
         try_rbf!(|r| thin_plate(r, 0.001), false, 1e-3);
         try_rbf!(|r| gaussian(r, 0.2), false, 1e-7);
+        try_rbf!(|r| inverse_quadratic(r, 2.0), false, 1e-7);
     }
 }
