@@ -49,13 +49,20 @@ impl<F> Interpolation<F>
         let mut rhs = Vector::new(vec![0.; n]);
 
         for i in 0..n {
-            let mut sum = 0.;
-            for j in 0..n {
+            rbf[[i, i]] = phi(distance!(dim, points.row(i), points.row(i)));
+            for j in 0..i {
                 let val = phi(distance!(dim, points.row(i), points.row(j)));
-                sum += val;
                 rbf[[i, j]] = val;
+                rbf[[j, i]] = val;
             }
+        }
+
+        for i in 0..n {
             rhs[i] = if normalized {
+                let mut sum = 0.;
+                for j in 0..n {
+                    sum += rbf[[i, j]];
+                }
                 sum * values[i]
             } else {
                 values[i]
