@@ -1,11 +1,10 @@
-use rulinalg::matrix::{BaseMatrix, Matrix};
-use rulinalg::matrix::decomposition::PartialPivLu;
-use rulinalg::vector::Vector;
+use nalgebra::{DMatrix, DVector};
+use nalgebra::linalg::LU;
 
 /// Interpolate multidemnsional function using radial basis functions.
 pub struct Interpolation<F> {
     /// Points at which the values of the function to be interpolated are given.
-    points: Matrix<f64>,
+    points: DMatrix<f64>,
     /// Weights of the interpolation.
     weights: Vec<f64>,
     /// Radial basis function used for the interpolation.
@@ -35,22 +34,22 @@ impl<F> Interpolation<F>
     /// `values` contains the values of the function to be interpolated at the
     /// given points. `normalized` determines whether normalized radial basis
     /// functions should be used.
-    pub fn new(points: Matrix<f64>, values: &[f64], phi: F,
+    pub fn new(points: DMatrix<f64>, values: &[f64], phi: F,
                normalized: bool) -> Interpolation<F> {
-        let dim = points.cols();
-        let n = points.rows();
+        let dim = points.ncols();
+        let n = points.nrows();
         assert_eq!(values.len(), n);
 
-        let mut rbf: Matrix<f64> = Matrix::zeros(n, n);
-        let mut rhs = Vector::new(vec![0.; n]);
+        let mut rbf: DMatrix<f64> = DMatrix::zeros(n, n);
+        let mut rhs = DVector::from_vec(vec![0.; n]);
 
         let phi0 = phi(0.);
         for i in 0..n {
-            rbf[[i, i]] = phi0;
+            rbf[(i, i)] = phi0;
             for j in 0..i {
                 let val = phi(distance!(dim, points.row(i), points.row(j)));
-                rbf[[i, j]] = val;
-                rbf[[j, i]] = val;
+                rbf[(i, j)] = val;
+                rbf[(j, i)] = val;
             }
         }
 
@@ -58,7 +57,7 @@ impl<F> Interpolation<F>
             rhs[i] = if normalized {
                 let mut sum = 0.;
                 for j in 0..n {
-                    sum += rbf[[i, j]];
+                    sum += rbf[(i, j)];
                 }
                 sum * values[i]
             } else {
@@ -66,12 +65,12 @@ impl<F> Interpolation<F>
             };
         }
 
-        let lu = PartialPivLu::decompose(rbf).expect("Matrix is not invertible");
-        let weights = lu.solve(rhs).expect("Matrix is singular");
+        let lu = LU::new(rbf);
+        let weights = lu.solve(&rhs).expect("DMatrix is not invertible or singular");
 
         Interpolation {
             points: points,
-            weights: weights.into(),
+            weights: weights.data.into(),
             phi: phi,
             normalized: normalized,
         }
@@ -79,12 +78,12 @@ impl<F> Interpolation<F>
 
     /// The dimension of the function being interpolated.
     pub fn dimension(&self) -> usize {
-        self.points.cols()
+        self.points.ncols()
     }
 
     /// The number of points being interpolated.
     pub fn number_of_points(&self) -> usize {
-        self.points.rows()
+        self.points.nrows()
     }
 
     /// Interpolate the function at the given point.
@@ -124,7 +123,7 @@ pub fn find_best_parameter<F, G, I>(points: &[f64], f: F, phi: G, normalized: bo
     let mut best_error = std::f64::INFINITY;
 
     for r0 in r0s {
-        let mpoints = Matrix::new(n, 1, points.clone());
+        let mpoints = DMatrix::from_vec(n, 1, points.to_vec());
         let interp = Interpolation::new(mpoints, &values,
             |r| phi(r, r0), normalized);
 
@@ -224,7 +223,7 @@ mod tests {
 
         macro_rules! try_rbf {
             ($phi: expr, $norm: expr, $tol: expr) => {
-                let mpoints = Matrix::new(N, 1, points.clone());
+                let mpoints = DMatrix::from_vec(N, 1, points.to_vec());
                 let interp = Interpolation::new(mpoints, &values, $phi, $norm);
 
                 for i in 0..N {
@@ -240,15 +239,15 @@ mod tests {
         }
 
         try_rbf!(|r| multiquadric(r, 0.3), true, 1e-6);
-        try_rbf!(|r| inverse_multiquadric(r, 0.8), true, 1e-7);
+        try_rbf!(|r| inverse_multiquadric(r, 0.8), true, 3e-6);
         try_rbf!(|r| thin_plate(r, 0.4), true, 0.003);
-        try_rbf!(|r| gaussian(r, 0.3), true, 1e-12);
+        try_rbf!(|r| gaussian(r, 0.3), true, 1e-11);
         try_rbf!(|r| inverse_quadratic(r, 2.0), true, 1e-7);
 
-        try_rbf!(|r| multiquadric(r, 1.0), false, 1e-7);
-        try_rbf!(|r| inverse_multiquadric(r, 0.8), false, 1e-7);
+        try_rbf!(|r| multiquadric(r, 1.0), false, 1e-6);
+        try_rbf!(|r| inverse_multiquadric(r, 0.8), false, 1e-5);
         try_rbf!(|r| thin_plate(r, 0.001), false, 1e-3);
-        try_rbf!(|r| gaussian(r, 0.2), false, 1e-7);
-        try_rbf!(|r| inverse_quadratic(r, 2.0), false, 1e-7);
+        try_rbf!(|r| gaussian(r, 0.2), false, 1e-6);
+        try_rbf!(|r| inverse_quadratic(r, 2.0), false, 1e-6);
     }
 }

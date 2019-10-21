@@ -10,7 +10,7 @@ categories = ["science"]
 edition = "2018"
 
 [dependencies]
-rulinalg = "0.4"
+nalgebra = "0.18"
 
 [dev-dependencies]
 assert_approx_eq = "1"
