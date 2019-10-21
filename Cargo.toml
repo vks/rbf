@@ -7,6 +7,7 @@ repository = "https://github.com/vks/rbf"
 description = "Interpolation using radial basis functions"
 readme = "README.md"
 categories = ["science"]
+edition = "2018"
 
 [dependencies]
 rulinalg = "0.4"
