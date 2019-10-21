@@ -1,7 +1,3 @@
-#[cfg(test)] #[macro_use]
-extern crate assert_approx_eq;
-extern crate rulinalg;
-
 use rulinalg::matrix::{BaseMatrix, Matrix};
 use rulinalg::matrix::decomposition::PartialPivLu;
 use rulinalg::vector::Vector;
@@ -208,6 +204,7 @@ pub fn inverse_quadratic(r: f64, r0: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_approx_eq::assert_approx_eq;
 
     #[test]
     fn one_dimensional() {
